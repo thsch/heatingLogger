@@ -113,5 +113,4 @@ void collectFromPage1(){
       Serial.println(resultValue);
     }
   }
-
 }
