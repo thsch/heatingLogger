@@ -1,0 +1,15 @@
+{
+  "name": "heating-api-mock",
+  "version": "0.0.1",
+  "description": "simple mock for test",
+  "main": "index.js",
+  "devDependencies": {},
+  "scripts": {
+    "start": ""
+  },
+  "author": "Thomas Schmidt",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}

@@ -10,7 +10,7 @@ EthernetServer server(80);
 // Client
 EthernetClient heizungClient;
 TextFinder finder( heizungClient );
-IPAddress heizung(192,168,178,66); // Hier die IP-Adresse der Heizung eintragen http://raspberrypi:8080
+IPAddress heizung(192,168,178,116); // Hier die IP-Adresse der Heizung eintragen http://192.168.178.116:8080
 uint16_t heizungPort = 8080;
 
 // Daten die von der Heizung gessammelt werden:
@@ -49,7 +49,7 @@ void loop() {
             client.println("HTTP/1.1 200 OK"); //send new page
             client.println("Content-Type: text/html");
             client.println("Connection: close");
-            client.println("Refresh: 5"); // alle 5 sek soll die Seite neu geladen werden.
+            //client.println("Refresh: 5"); // alle 5 sek soll die Seite neu geladen werden.
             client.println();
 
             client.println("<HTML>");
@@ -60,19 +60,19 @@ void loop() {
 
             // jetzt geben wir die Daten aus
             client.println("<div><span>Außentemperatur:</span><span>");            
-            client.println(outdoorTemperature);
+            client.println(outdoorTemperature,1);
             client.println("</span><span>°C</span></div>");
 
             client.println("<div><span>Temperatur Solarspeicher unten:</span><span>");            
-            client.println(lowerSolarStorageTemperature);
+            client.println(lowerSolarStorageTemperature,0);
             client.println("</span><span>°C</span></div>");
             
             client.println("<div><span>Kollektortemperatur:</span><span>");            
-            client.println(collectorTemperature);
+            client.println(collectorTemperature,0);
             client.println("</span><span>°C</span></div>");
             
             client.println("<div><span>Kollektorpumpe:</span><span>");            
-            client.println(collectorPump);
+            client.println(collectorPump,0);
             client.println("</span><span>%</span></div>");
             
             // evtl. noch weitere
@@ -91,61 +91,68 @@ void loop() {
 }
 
 void collectData(){
-  if (heizungClient.connect(heizung, heizungPort)) {
-    Serial.println("Daten von Heizung abfragen.");
     getOutdoorTemperature();
     getLowerSolarStorageTemperature();
     getCollectorTemperature();
     getCollectorPump();
-    // hier noch Datum/Uhrzeit ergänzen
-  } else {
-    Serial.println("connection failed");
-    Serial.println();
-  }
+    // hier evtl. noch Datum/Uhrzeit ergänzen
   
-  Serial.println("Verbindung zur Heizung getrennt.");
-  heizungClient.stop();  
 }
 
 void getOutdoorTemperature(){
   outdoorTemperature = getFloatEta("/user/var/120/10221/0/0/12197",-1);
   Serial.print("Außentemperatur: ");
-  Serial.print(outdoorTemperature);  
+  Serial.print(outdoorTemperature,1);  
   Serial.println("°C"); 
 }
 
 void getLowerSolarStorageTemperature(){
-  outdoorTemperature = getFloatEta("/user/var/120/10221/0/0/12185",-1);
+  lowerSolarStorageTemperature = getFloatEta("/user/var/120/10221/0/0/12185",-1);
   Serial.print("Temperatur Solarspeicher unten: ");
-  Serial.print(lowerSolarStorageTemperature);  
+  Serial.print(lowerSolarStorageTemperature,0);  
   Serial.println("°C"); 
 }
 
 void getCollectorTemperature(){
-  outdoorTemperature = getFloatEta("/user/var/120/10221/0/0/12275",-1);
+  collectorTemperature = getFloatEta("/user/var/120/10221/0/0/12275",-1);
   Serial.print("Kollektortemperatur: ");
-  Serial.print(collectorTemperature); 
+  Serial.print(collectorTemperature,0); 
   Serial.println("°C"); 
 }
 
 void getCollectorPump(){
-  outdoorTemperature = getFloatEta("/user/var/120/10221/0/0/12278",-1);
-  Serial.print("Kolleektorpumpe: ");
-  Serial.print(collectorPump);  
+  collectorPump = getFloatEta("/user/var/120/10221/0/0/12278",-1);
+  Serial.print("Kollektorpumpe: ");
+  Serial.print(collectorPump,0);  
   Serial.println("%");
 }
 
 
 float getFloatEta(String uri, float defaultValue){
   float result = defaultValue;
-  heizungClient.println("GET " + uri + " HTTP/1.0");    
-  heizungClient.println();
-  while(heizungClient.connected() && !heizungClient.available()) delay(1); //warten auf Antwort
-  while (heizungClient.connected() || heizungClient.available()) { //Daten empfangen
-    char from[] = "strValue=\"";
-    if(finder.find(from) ){  // suche in der Antwort nach dem Wert <body>   
-      outdoorTemperature = finder.getFloat(); 
+  Serial.print("Daten abfragen: ");
+  Serial.println(uri);
+  if (heizungClient.connect(heizung, heizungPort)) {  
+    heizungClient.println("GET " + uri + " HTTP/1.0");    
+    heizungClient.println();    
+    if (heizungClient.connected()){
+      char fromValue[] = "strValue=\"";
+      if(finder.find(fromValue) ){  
+        result = finder.getFloat(',');         
+      } else {
+        Serial.println("Wert kann nicht gefunden werden.");
+      }
+      char fromDecPlaces[] = "decPlaces=\"";
+      if(finder.find(fromDecPlaces) ){ 
+        long decValues = finder.getValue(); 
+        result = result / pow(10,decValues);
+      }
     }
-  }
+  } else {
+    Serial.println("connection failed");    
+  }  
+  Serial.println("Verbindung zur Heizung getrennt.");
+  heizungClient.stop(); 
+  heizungClient.flush();  
   return result;
 }
